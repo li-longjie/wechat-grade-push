@@ -1,9 +1,9 @@
-flask
+Flask
 requests
 cryptography
-apscheduler
+APScheduler
 pytz
 DrissionPage
 ddddocr
 jsonpath
-urllib3 
+urllib3
