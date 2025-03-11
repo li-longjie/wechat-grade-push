@@ -6,4 +6,4 @@ ddddocr
 jsonpath
 pytz
 urllib3
-APScheduler 
+APScheduler
