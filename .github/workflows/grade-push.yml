@@ -29,13 +29,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        cd wechat-grade-push
-        pip install -r requirements.txt
+        pip install Flask requests cryptography APScheduler pytz DrissionPage ddddocr jsonpath urllib3
         
     - name: Run grade check and push
       env:
         WECHAT_APPID: ${{ secrets.WECHAT_APPID }}
         WECHAT_APPSECRET: ${{ secrets.WECHAT_APPSECRET }}
       run: |
-        cd wechat-grade-push
-        python action_runner.py 
+        ls -la  # 显示当前目录结构
+        python wechat-grade-push/action_runner.py 
