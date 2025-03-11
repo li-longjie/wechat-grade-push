@@ -37,4 +37,4 @@ jobs:
         WECHAT_APPSECRET: ${{ secrets.WECHAT_APPSECRET }}
       run: |
         ls -la  # 显示当前目录结构
-        python wechat-grade-push/action_runner.py 
+        python action_runner.py 
