@@ -1,0 +1,9 @@
+Flask
+requests
+cryptography
+DrissionPage
+ddddocr
+jsonpath
+pytz
+urllib3
+APScheduler 
