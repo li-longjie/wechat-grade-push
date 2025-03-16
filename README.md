@@ -37,9 +37,9 @@ cd grade-push
 2. 安装依赖
    pip3 install -r requirements.txt
 3. 安装 Chrome 浏览器（Ubuntu示例）
-   sudo apt-get update
-   sudo apt-get install -y wget unzip
-   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+   sudo apt-get update  
+   sudo apt-get install -y wget unzip  
+   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb  
    sudo apt install ./google-chrome-stable_current_amd64.deb
 4. 配置企业微信（在 app.py 中修改）
    CORP_ID = "your_corp_id"
