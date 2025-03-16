@@ -1,6 +1,7 @@
 # 辽工大成绩查询推送系统
 
 一个基于企业微信的自动成绩查询和推送系统，可以实时查询成绩并在新成绩发布时自动推送通知。
+大致思路：通过模拟登录处理滑动拼图，登录成功后获取新的cookie(登录信息)，进而爬取新成绩。再利用企业微信的应用创建，实现关注用户的消息推送，每一个小时爬起一次成绩和原成绩对比。有新成绩自动推送到微信。（需部署在服务器上）
 
 ## 功能特点
 
@@ -31,7 +32,7 @@
 ### 安装步骤
 
 1. 克隆仓库
- git clone https://github.com/jasonli/grade-push.git
+ https://github.com/li-longjie/wechat-grade-push.git
 cd grade-push
 2. 安装依赖
    pip3 install -r requirements.txt
