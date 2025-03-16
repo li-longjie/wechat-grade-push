@@ -19,9 +19,9 @@ import base64
 from gunicorn.app.base import BaseApplication
 
 # 配置常量
-TOKEN = "wechatgrade"
-ENCODING_AES_KEY = "jWmYm7qr5nMoAUwZRjGtBxmz3KA1tkAj3ykkR6q2B2C"
-CORP_ID = "ww2965fcb1f3435d23"
+TOKEN = "wechatgrade"    #需和微信url配置界面相同
+ENCODING_AES_KEY = "jWmYm7qr5nMoAUwZRjGtBxmz3KA1tkAj3ykkR6q2B2C"   #需和微信url配置界面相同
+CORP_ID = "你的企业号"
 
 # 全局变量
 app = Flask(__name__)
@@ -361,8 +361,8 @@ def create_app():
     # 初始化企业微信实例
     wechat = EnterpriseWeChat(
         corpid=CORP_ID,
-        corpsecret="UIugLUofqZsSp7jkDVQgce1XSascxVpfSOVJPX5gLOs",
-        agentid="1000002"
+        corpsecret="替换为应用密钥",
+        agentid="替换为自己的应用ID"
     )
     
     # 初始化 WXBizMsgCrypt
