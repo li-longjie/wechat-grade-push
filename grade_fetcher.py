@@ -198,6 +198,7 @@ def get_scores(page):
     for key, value in cookies.items():
         session.cookies.set(key, value)
 
+    # 获取成绩
     index_url = 'https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wdcjapp/*default/index.do'
     session.get(index_url, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
 
@@ -217,6 +218,8 @@ def get_scores(page):
     }
 
     score_res = session.post(score_url, headers=score_headers, data=query_data, verify=False)
+    grades = []
+    
     if score_res.status_code == 200:
         try:
             res2 = json.loads(score_res.content)
@@ -224,7 +227,45 @@ def get_scores(page):
             score = jsonpath.jsonpath(res2, '$..DYBFZCJ') or []
             grades = list(zip(kc, score)) if kc and score else []
             logger.info(f"成功获取成绩: {grades}")
+            
+            # 获取排名
+            try:
+                # 访问排名系统主页面
+                rank_index_url = 'https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wthdglapp/*default/index.do'
+                session.get(rank_index_url, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+                
+                # 查询排名
+                rank_url = 'https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wthdglapp/modules/fzdxdjb/query.do?vpn-12-o2-yjsglxt.lntu.edu.cn'
+                rank_headers = {
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Origin': 'https://webvpn.lntu.edu.cn',
+                    'Referer': f'{rank_index_url}?v=8658628a-146d-4cb5-8b9a-dde04b05d6b0&THEME=blue&EMAP_LANG=zh&min=1&_yhz=08e2bba0cc7a4aeda8cb4de127a55914',
+                }
+                
+                rank_res = session.get(rank_url, headers=rank_headers, verify=False)
+                logger.info(f"排名查询状态码: {rank_res.status_code}")
+                
+                if rank_res.status_code == 200:
+                    rank_data = json.loads(rank_res.content)
+                    rank = jsonpath.jsonpath(rank_data, '$..ZYPMZYZRS')
+                    if rank and rank[0]:
+                        try:
+                            rank_number = rank[0].split('/')[0]  # 获取斜杠前的数字
+                            rank_info = f"🏅 最新排名：{rank_number}"  # 直接在这里添加 emoji
+                            logger.info(f"获取到排名信息: {rank_info}")
+                            grades.insert(0, ("排名信息", rank_info))
+                            logger.info(f"成功添加排名信息到成绩列表: {grades}")
+                        except Exception as e:
+                            logger.error(f"处理排名数字时出错: {e}")
+                
+            except Exception as e:
+                logger.error(f"获取排名时发生错误: {e}")
+            
             return grades
+            
         except json.JSONDecodeError:
             logger.error("响应内容不是有效的JSON")
             return []
@@ -239,20 +280,38 @@ def format_grades(grades):
     
     result = "📊 成绩单\n"
     result += "====================\n"
+    
+    # 检查是否有排名信息
+    if grades and grades[0][0] == "排名信息":
+        result += f"{grades[0][1]}\n"  # 直接使用包含 emoji 的排名信息
+        result += "====================\n"
+        grades = grades[1:]  # 移除排名信息，继续处理成绩
+    
     for course, score in grades:
-        # 根据分数添加不同的表情
-        if float(score) >= 90:
-            emoji = "🏆"
-        elif float(score) >= 80:
-            emoji = "✨"
-        elif float(score) >= 70:
-            emoji = "👍"
-        elif float(score) >= 60:
-            emoji = "💪"
-        else:
-            emoji = "💡"
-        
-        result += f"{emoji} {course}：{score}\n"
+        try:
+            # 只对成绩分数进行浮点数转换
+            if course != "排名信息":  # 跳过排名信息的浮点数转换
+                score_float = float(score)
+                # 根据分数添加不同的表情
+                if score_float >= 90:
+                    emoji = "🏆"
+                elif score_float >= 80:
+                    emoji = "✨"
+                elif score_float >= 70:
+                    emoji = "👍"
+                elif score_float >= 60:
+                    emoji = "💪"
+                else:
+                    emoji = "💡"
+                
+                result += f"{emoji} {course}：{score}\n"
+        except ValueError:
+            # 如果是排名信息，直接显示
+            if course == "排名信息":
+                result += f"{score}\n"
+            else:
+                result += f"ℹ️ {course}：{score}\n"
+    
     result += "====================\n"
     result += "💝 加油！继续保持！"
     logger.info(result)

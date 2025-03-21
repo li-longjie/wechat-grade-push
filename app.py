@@ -19,8 +19,8 @@ import base64
 from gunicorn.app.base import BaseApplication
 
 # 配置常量
-TOKEN = "wechatgrade"
-ENCODING_AES_KEY = "jWmYm7qr5nMoAUwZRjGtBxmz3KA1tkAj3ykkR6q2B2C"
+TOKEN = "wechatgrade"    #需和微信url配置界面相同
+ENCODING_AES_KEY = "jWmYm7qr5nMoAUwZRjGtBxmz3KA1tkAj3ykkR6q2B2C"   #需和微信url配置界面相同
 CORP_ID = "ww2965fcb1f3435d23"
 
 # 全局变量
@@ -150,20 +150,31 @@ class EnterpriseWeChat:
             
             if grades:
                 grade_list = []
+                # 检查是否有排名信息
+                if grades and grades[0][0] == "排名信息":
+                    grade_list.append(grades[0][1])  # 直接添加排名信息
+                    grade_list.append("====================")
+                    grades = grades[1:]  # 移除排名信息，继续处理成绩
+                
                 for course, score in grades:
-                    # 根据分数添加不同的表情
-                    if float(score) >= 90:
-                        emoji = "🏆"
-                    elif float(score) >= 80:
-                        emoji = "✨"
-                    elif float(score) >= 70:
-                        emoji = "👍"
-                    elif float(score) >= 60:
-                        emoji = "💪"
-                    else:
-                        emoji = "💡"
-                    grade_list.append(f"{emoji} {course}：{score}")
-                    
+                    try:
+                        score_float = float(score)
+                        # 根据分数添加不同的表情
+                        if score_float >= 90:
+                            emoji = "🏆"
+                        elif score_float >= 80:
+                            emoji = "✨"
+                        elif score_float >= 70:
+                            emoji = "👍"
+                        elif score_float >= 60:
+                            emoji = "💪"
+                        else:
+                            emoji = "💡"
+                        grade_list.append(f"{emoji} {course}：{score}")
+                    except ValueError:
+                        # 如果无法转换为浮点数，使用默认emoji
+                        grade_list.append(f"ℹ️ {course}：{score}")
+                
                 result = (
                     "📊 查询成功！\n\n"
                     "最新成绩：\n"
@@ -303,19 +314,30 @@ class EnterpriseWeChat:
         """通知新成绩"""
         if grades:
             grade_list = []
+            # 检查是否有排名信息
+            if grades and grades[0][0] == "排名信息":
+                grade_list.append(grades[0][1])  # 直接添加排名信息
+                grade_list.append("====================")
+                grades = grades[1:]  # 移除排名信息，继续处理成绩
+            
             for course, score in grades:
-                # 根据分数添加不同的表情
-                if float(score) >= 90:
-                    emoji = "🏆"
-                elif float(score) >= 80:
-                    emoji = "✨"
-                elif float(score) >= 70:
-                    emoji = "👍"
-                elif float(score) >= 60:
-                    emoji = "💪"
-                else:
-                    emoji = "💡"
-                grade_list.append(f"{emoji} {course}：{score}")
+                try:
+                    score_float = float(score)
+                    # 根据分数添加不同的表情
+                    if score_float >= 90:
+                        emoji = "🏆"
+                    elif score_float >= 80:
+                        emoji = "✨"
+                    elif score_float >= 70:
+                        emoji = "👍"
+                    elif score_float >= 60:
+                        emoji = "💪"
+                    else:
+                        emoji = "💡"
+                    grade_list.append(f"{emoji} {course}：{score}")
+                except ValueError:
+                    # 如果无法转换为浮点数，使用默认emoji
+                    grade_list.append(f"ℹ️ {course}：{score}")
                 
             grade_text = "\n  ".join(grade_list)
             message = f"""🎉 新成绩通知！
@@ -339,17 +361,32 @@ class EnterpriseWeChat:
                 )
                 
                 if current_grades:
+                    # 分离排名信息和成绩信息
+                    current_rank = None
+                    if current_grades and current_grades[0][0] == "排名信息":
+                        current_rank = current_grades[0][1]
+                        current_grades = current_grades[1:]  # 移除排名信息
+                    
                     current_grades_dict = dict(current_grades)
                     last_grades = data.get('last_grades', {})
                     
                     new_grades = []
+                    # 检查成绩是否有变化
+                    has_new_grades = False
                     for course, grade in current_grades:
                         if course not in last_grades or last_grades[course] != grade:
+                            has_new_grades = True
                             new_grades.append((course, grade))
+                    
+                    # 如果有新成绩，添加最新排名
+                    if has_new_grades and current_rank:
+                        new_grades.insert(0, ("排名信息", current_rank))
                     
                     if new_grades:
                         self.notify_grade(openid, new_grades)
+                        # 更新保存的成绩和排名
                         data['last_grades'] = current_grades_dict
+                        data['last_rank'] = current_rank
                         self.save_user_bindings()
                         
             except Exception as e:
@@ -364,7 +401,6 @@ def create_app():
         corpsecret="UIugLUofqZsSp7jkDVQgce1XSascxVpfSOVJPX5gLOs",
         agentid="1000002"
     )
-    
     # 初始化 WXBizMsgCrypt
     wxcpt = WXBizMsgCrypt(TOKEN, ENCODING_AES_KEY, CORP_ID)
     
