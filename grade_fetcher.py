@@ -321,8 +321,8 @@ def test_grades():
     """测试成绩查询功能"""
     logger.info("开始测试成绩查询...")
     try:
-        student_id = "4724200535"
-        password = "Hap2pyne2wyear357*"
+        student_id = "学号"
+        password = "密码"
         
         grades = get_grades(student_id, password)
         formatted_grades = format_grades(grades)
