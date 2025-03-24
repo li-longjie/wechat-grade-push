@@ -250,17 +250,24 @@ def get_scores(page):
                 
                 if rank_res.status_code == 200:
                     rank_data = json.loads(rank_res.content)
-                    rank = jsonpath.jsonpath(rank_data, '$..ZYPMZYZRS')
-                    if rank and rank[0]:
-                        try:
-                            rank_number = rank[0].split('/')[0]  # 获取斜杠前的数字
-                            rank_info = f"🏅 最新排名：{rank_number}"  # 直接在这里添加 emoji
-                            logger.info(f"获取到排名信息: {rank_info}")
-                            grades.insert(0, ("排名信息", rank_info))
-                            logger.info(f"成功添加排名信息到成绩列表: {grades}")
-                        except Exception as e:
-                            logger.error(f"处理排名数字时出错: {e}")
-                
+                    # 提取所有需要的字段
+                    name = jsonpath.jsonpath(rank_data, '$..XM')[0]
+                    major = jsonpath.jsonpath(rank_data, '$..ZYDM_DISPLAY')[0].split(" ")[1]  # 提取专业名称部分
+                    rank = jsonpath.jsonpath(rank_data, '$..ZYPMZYZRS')[0]
+                    avg_score = jsonpath.jsonpath(rank_data, '$..JQPJF')[0]
+                    
+                    # 构建完整的排名信息
+                    rank_info = {
+                        "name": name,
+                        "major": major,
+                        "rank": rank,
+                        "avg_score": avg_score
+                    }
+                    
+                    logger.info(f"获取到排名信息: {rank_info}")
+                    # 将完整的排名信息添加到成绩列表
+                    grades.insert(0, ("排名信息", json.dumps(rank_info)))
+                    logger.info(f"成功添加排名信息到成绩列表: {grades}")
             except Exception as e:
                 logger.error(f"获取排名时发生错误: {e}")
             

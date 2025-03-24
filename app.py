@@ -149,45 +149,69 @@ class EnterpriseWeChat:
             )
             
             if grades:
-                grade_list = []
-                # 检查是否有排名信息
+                # 分离排名信息和成绩信息
+                student_info = None
                 if grades and grades[0][0] == "排名信息":
-                    grade_list.append(grades[0][1])  # 直接添加排名信息
-                    grade_list.append("====================")
-                    grades = grades[1:]  # 移除排名信息，继续处理成绩
-                
+                    rank_info = json.loads(grades[0][1])
+                    student_info = {
+                        "name": rank_info["name"],
+                        "major": rank_info["major"],
+                        "rank": rank_info["rank"],
+                        "avg_score": rank_info["avg_score"]
+                    }
+                    grades = grades[1:]
+
+                # 构建成绩列表
+                grade_items = []
                 for course, score in grades:
                     try:
                         score_float = float(score)
-                        # 根据分数添加不同的表情
-                        if score_float >= 90:
-                            emoji = "🏆"
-                        elif score_float >= 80:
-                            emoji = "✨"
-                        elif score_float >= 70:
-                            emoji = "👍"
-                        elif score_float >= 60:
-                            emoji = "💪"
-                        else:
-                            emoji = "💡"
-                        grade_list.append(f"{emoji} {course}：{score}")
+                        emoji = "🏆" if score_float >= 90 else "✨" if score_float >= 80 else "👍"
+                        grade_items.append(f"• {course}：{score} {emoji}")
                     except ValueError:
-                        # 如果无法转换为浮点数，使用默认emoji
-                        grade_list.append(f"ℹ️ {course}：{score}")
-                
-                result = (
-                    "📊 查询成功！\n\n"
-                    "最新成绩：\n"
-                    "====================\n"
-                    f"  " + "\n  ".join(grade_list) + "\n"
-                    "====================\n"
-                    "💝 加油！继续保持！\n\n"
-                    "如需再次查询请回复：查询"
-                )
-            else:
-                result = "❌ 暂无新成绩\n\n如需再次查询请回复：查询"
-            
-            self.send_message(userid, result)
+                        grade_items.append(f"• {course}：{score}")
+
+                # 构建卡片消息
+                picurl = f"https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421f1e2559434357a467b1ac7a09641367b918300a4219f/authserver/default/static/common/images/PC_BG_0.png?t={int(time.time())}"
+                card_message = {
+                    "touser": userid,
+                    "msgtype": "news",
+                    "agentid": self.agentid,
+                    "news": {
+                        "articles": [
+                            {
+                                "title": "📊 成绩查询结果",
+                                "description": (
+                                    f"👤 {student_info['name']} | {student_info['major']}\n"
+                                    f"📈 排名：{student_info['rank']} | 均分：{student_info['avg_score']}\n\n"
+                                    "📋 成绩列表\n" +
+                                    "\n".join(grade_items)
+                                ),
+                                "url": "https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wdcjapp/*default/index.do",
+                                "picurl": picurl
+                            }
+                        ]
+                    }
+                }
+
+                # 发送卡片消息
+                access_token = self.get_access_token()
+                if access_token:
+                    url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={access_token}"
+                    try:
+                        response = requests.post(url, json=card_message)
+                        result = response.json()
+                        if result.get("errcode") != 0:
+                            logger.error(f"发送企业微信卡片消息失败：{result}")
+                            # 如果卡片消息发送失败，回退到普通文本消息
+                            self.send_fallback_message(userid, grade_items, student_info)
+                        else:
+                            logger.info("企业微信卡片消息发送成功")
+                    except Exception as e:
+                        logger.error(f"发送企业微信卡片消息异常：{e}")
+                        self.send_fallback_message(userid, grade_items, student_info)
+                else:
+                    self.send_message(userid, "❌ 暂无成绩信息\n\n如需再次查询请回复：查询")
             
         except Exception as e:
             logging.error(f"异步查询成绩失败: {e}")
@@ -313,84 +337,227 @@ class EnterpriseWeChat:
     def notify_grade(self, userid, grades):
         """通知新成绩"""
         if grades:
-            grade_list = []
-            # 检查是否有排名信息
+            # 分离排名信息和成绩信息
+            student_info = None
             if grades and grades[0][0] == "排名信息":
-                grade_list.append(grades[0][1])  # 直接添加排名信息
-                grade_list.append("====================")
-                grades = grades[1:]  # 移除排名信息，继续处理成绩
-            
+                rank_data = json.loads(grades[0][1])
+                student_info = {
+                    "name": rank_data.get("XM", ""),
+                    "major": rank_data.get("ZYDM_DISPLAY", "").split(" ")[1],
+                    "avg_score": rank_data.get("JQPJF", ""),
+                    "rank": rank_data.get("ZYPMZYZRS", "")  # 保持原始格式 "20/31人"
+                }
+                grades = grades[1:]
+
+            # 构建成绩列表
+            grade_items = []
             for course, score in grades:
                 try:
                     score_float = float(score)
-                    # 根据分数添加不同的表情
-                    if score_float >= 90:
-                        emoji = "🏆"
-                    elif score_float >= 80:
-                        emoji = "✨"
-                    elif score_float >= 70:
-                        emoji = "👍"
-                    elif score_float >= 60:
-                        emoji = "💪"
-                    else:
-                        emoji = "💡"
-                    grade_list.append(f"{emoji} {course}：{score}")
+                    emoji = "🏆" if score_float >= 90 else "✨" if score_float >= 80 else "👍"
+                    grade_items.append(f"• {course}：{score} {emoji}")
                 except ValueError:
-                    # 如果无法转换为浮点数，使用默认emoji
-                    grade_list.append(f"ℹ️ {course}：{score}")
-                
-            grade_text = "\n  ".join(grade_list)
-            message = f"""🎉 新成绩通知！
+                    grade_items.append(f"• {course}：{score}")
 
-最新成绩：
-====================
-  {grade_text}
-====================
-💝 加油！继续保持！
+            # 构建卡片消息
+            picurl = f"https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421f1e2559434357a467b1ac7a09641367b918300a4219f/authserver/default/static/common/images/PC_BG_0.png?t={int(time.time())}"
+            card_message = {
+                "touser": userid,
+                "msgtype": "news",
+                "agentid": self.agentid,
+                "news": {
+                    "articles": [
+                        {
+                            "title": "🎉 新成绩通知",
+                            "description": (
+                                f"👤 {student_info['name']} | {student_info['major']}\n"
+                                f"📈 排名：{student_info['rank']} | 均分：{student_info['avg_score']}\n"
+                                "━━━━━━━━━━━━━━\n"
+                                "📋 最新成绩\n" +
+                                "\n".join(grade_items) +
+                                "\n\n点击查看完整成绩单"
+                            ),
+                            "url": "https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wdcjapp/*default/index.do",
+                            "picurl": picurl
+                        }
+                    ]
+                }
+            }
 
-可回复"查询"查看所有成绩"""
-            self.send_message(userid, message)
+            # 发送卡片消息
+            access_token = self.get_access_token()
+            if access_token:
+                url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={access_token}"
+                try:
+                    response = requests.post(url, json=card_message)
+                    result = response.json()
+                    if result.get("errcode") == 0:
+                        logger.info("企业微信图文消息发送成功")
+                        return True
+                    else:
+                        logger.error(f"发送企业微信图文消息失败：{result}")
+                        self.send_fallback_message(userid, grade_items, student_info)
+                except Exception as e:
+                    logger.error(f"发送企业微信图文消息异常：{e}")
+                    self.send_fallback_message(userid, grade_items, student_info)
+            return False
+
+    def send_fallback_message(self, userid, grade_items, student_info):
+        """发送备用文本消息"""
+        message = (
+            "📊 成绩查询结果\n\n"
+            f"📈 当前排名：{student_info['rank'] if student_info else '暂无排名'}\n\n"
+            "📋 成绩列表\n" +
+            "\n".join(grade_items) +
+            "\n\n回复【查询】查看完整成绩单"
+        )
+        self.send_message(userid, message)
 
     def automatic_push_grades(self):
         """自动检查并推送新成绩"""
-        for openid, data in self.user_bindings.items():
+        # 创建用户绑定信息的副本进行遍历
+        user_bindings_copy = dict(self.user_bindings)
+        
+        for openid, data in user_bindings_copy.items():
             try:
+                # 检查用户是否仍在关注
+                if not self.check_user_follow(openid):
+                    logger.info(f"用户已取消关注，移除绑定信息 (openid: {openid})")
+                    del self.user_bindings[openid]
+                    self.save_user_bindings()
+                    continue
+                
                 current_grades = grade_fetcher.get_grades(
                     data['student_id'],
                     data['password']
                 )
                 
-                if current_grades:
-                    # 分离排名信息和成绩信息
-                    current_rank = None
-                    if current_grades and current_grades[0][0] == "排名信息":
-                        current_rank = current_grades[0][1]
-                        current_grades = current_grades[1:]  # 移除排名信息
-                    
+                # 检查是否成功获取到成绩
+                if not current_grades:
+                    logger.info(f"未获取到成绩数据 (openid: {openid})")
+                    continue
+                
+                # 检查成绩列表是否为空或无效
+                if not isinstance(current_grades, list) or len(current_grades) == 0:
+                    logger.info(f"成绩列表为空或无效 (openid: {openid})")
+                    continue
+
+                # 分离排名信息和成绩信息
+                student_info = {
+                    "name": "同学",
+                    "major": "研究生",
+                    "avg_score": "暂无",
+                    "rank": "暂无"
+                }
+                
+                try:
+                    if current_grades[0][0] == "排名信息":
+                        try:
+                            rank_data = json.loads(current_grades[0][1])
+                            student_info = {
+                                "name": rank_data.get("XM", "同学"),
+                                "major": rank_data.get("ZYDM_DISPLAY", "").split(" ")[1] if rank_data.get("ZYDM_DISPLAY") else "研究生",
+                                "avg_score": rank_data.get("JQPJF", "暂无"),
+                                "rank": rank_data.get("ZYPMZYZRS", "暂无")
+                            }
+                            current_grades = current_grades[1:]
+                        except (json.JSONDecodeError, IndexError, KeyError) as e:
+                            logger.error(f"解析排名数据失败 (openid: {openid}): {e}")
+                except IndexError:
+                    logger.error(f"成绩列表格式无效 (openid: {openid})")
+                    continue
+                
+                # 检查剩余成绩列表是否为空
+                if not current_grades:
+                    logger.info(f"成绩列表为空 (openid: {openid})")
+                    continue
+                
+                try:
                     current_grades_dict = dict(current_grades)
-                    last_grades = data.get('last_grades', {})
+                except (TypeError, ValueError) as e:
+                    logger.error(f"转换成绩列表失败 (openid: {openid}): {e}")
+                    continue
                     
-                    new_grades = []
-                    # 检查成绩是否有变化
-                    has_new_grades = False
-                    for course, grade in current_grades:
-                        if course not in last_grades or last_grades[course] != grade:
-                            has_new_grades = True
-                            new_grades.append((course, grade))
-                    
-                    # 如果有新成绩，添加最新排名
-                    if has_new_grades and current_rank:
-                        new_grades.insert(0, ("排名信息", current_rank))
-                    
-                    if new_grades:
-                        self.notify_grade(openid, new_grades)
-                        # 更新保存的成绩和排名
-                        data['last_grades'] = current_grades_dict
-                        data['last_rank'] = current_rank
-                        self.save_user_bindings()
-                        
+                last_grades = data.get('last_grades', {})
+                
+                new_grades = []
+                # 检查成绩是否有变化
+                has_new_grades = False
+                for course, grade in current_grades:
+                    if course not in last_grades or last_grades[course] != grade:
+                        has_new_grades = True
+                        new_grades.append((course, grade))
+                
+                if has_new_grades:
+                    # 构建成绩列表
+                    grade_items = []
+                    for course, score in new_grades:
+                        try:
+                            score_float = float(score)
+                            emoji = "🏆" if score_float >= 90 else "✨" if score_float >= 80 else "👍"
+                            grade_items.append(f"• {course}：{score} {emoji}")
+                        except ValueError:
+                            grade_items.append(f"• {course}：{score}")
+
+                    # 构建图文消息
+                    picurl = f"https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421f1e2559434357a467b1ac7a09641367b918300a4219f/authserver/default/static/common/images/PC_BG_0.png?t={int(time.time())}"
+                    card_message = {
+                        "touser": openid,
+                        "msgtype": "news",
+                        "agentid": self.agentid,
+                        "news": {
+                            "articles": [
+                                {
+                                    "title": "🎉 新成绩通知",
+                                    "description": (
+                                        f"👤 {student_info['name']} | {student_info['major']}\n"
+                                        f"📈 排名：{student_info['rank']} | 均分：{student_info['avg_score']}\n"
+                                        "━━━━━━━━━━━━━━\n"
+                                        "📋 最新成绩\n" +
+                                        "\n".join(grade_items) +
+                                        "\n\n点击查看完整成绩单"
+                                    ),
+                                    "url": "https://webvpn.lntu.edu.cn/https/77726476706e69737468656265737421e9fd529b2b287c1e72069db9d6502720d35c6c/gsapp/sys/wdcjapp/*default/index.do",
+                                    "picurl": picurl
+                                }
+                            ]
+                        }
+                    }
+
+                    # 发送消息
+                    access_token = self.get_access_token()
+                    if access_token:
+                        url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={access_token}"
+                        try:
+                            response = requests.post(url, json=card_message)
+                            result = response.json()
+                            if result.get("errcode") == 0:
+                                logger.info(f"企业微信图文消息发送成功 (openid: {openid})")
+                                # 更新保存的成绩
+                                data['last_grades'] = current_grades_dict
+                                self.save_user_bindings()
+                            else:
+                                logger.error(f"发送企业微信图文消息失败 (openid: {openid}): {result}")
+                                self.send_fallback_message(openid, grade_items, student_info)
+                        except Exception as e:
+                            logger.error(f"发送企业微信图文消息异常 (openid: {openid}): {e}")
+                            self.send_fallback_message(openid, grade_items, student_info)
+            
             except Exception as e:
                 logger.error(f"自动检查成绩失败 (openid: {openid}): {e}")
+
+    def check_user_follow(self, userid):
+        """检查用户是否仍在关注"""
+        access_token = self.get_access_token()
+        if access_token:
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token={access_token}&userid={userid}"
+            try:
+                response = requests.get(url)
+                result = response.json()
+                return result.get("errcode") == 0
+            except Exception as e:
+                logger.error(f"检查用户关注状态失败 (userid: {userid}): {e}")
+        return False
 
 def create_app():
     global app, scheduler, wechat, wxcpt
@@ -406,8 +573,11 @@ def create_app():
     
     # 只在主进程中初始化调度器
     if os.environ.get('GUNICORN_WORKER_TYPE') != 'worker':
-        init_scheduler()
-        logger.info("主进程初始化完成")
+        try:
+            init_scheduler()
+            logger.info("主进程和调度器初始化完成")
+        except Exception as e:
+            logger.error(f"调度器初始化失败: {e}")
     else:
         logger.info("工作进程初始化完成")
     
@@ -416,14 +586,61 @@ def create_app():
 def init_scheduler():
     global scheduler
     if scheduler is None:
-        scheduler = BackgroundScheduler()
+        scheduler = BackgroundScheduler(
+            timezone=pytz.UTC,
+            job_defaults={
+                'coalesce': True,  # 合并执行错过的任务
+                'max_instances': 1,  # 防止重复执行
+                'misfire_grace_time': 3600  # 错过执行的宽限时间
+            }
+        )
         
-        @scheduler.scheduled_job('interval', minutes=60)
+        # 添加成绩检查任务
+        @scheduler.scheduled_job('interval', minutes=60, id='check_grades')
         def check_grades():
-            wechat.automatic_push_grades()
-            
-        scheduler.start()
-        logger.info("调度器已启动")
+            try:
+                logger.info("开始执行定时成绩检查...")
+                wechat.automatic_push_grades()
+                logger.info("定时成绩检查完成")
+            except Exception as e:
+                logger.error(f"定时成绩检查失败: {e}")
+        
+        # 添加调度器健康检查任务
+        @scheduler.scheduled_job('interval', minutes=5, id='scheduler_health_check')
+        def check_scheduler_health():
+            try:
+                # 检查主任务的状态
+                main_job = scheduler.get_job('check_grades')
+                if not main_job:
+                    logger.error("成绩检查任务丢失，正在重新添加...")
+                    scheduler.add_job(
+                        check_grades,
+                        'interval',
+                        minutes=60,
+                        id='check_grades'
+                    )
+                
+                # 检查调度器状态
+                if not scheduler.running:
+                    logger.error("调度器已停止，正在重启...")
+                    scheduler.start()
+                
+                logger.info("调度器健康检查完成")
+            except Exception as e:
+                logger.error(f"调度器健康检查失败: {e}")
+                try:
+                    # 尝试重启调度器
+                    if scheduler.running:
+                        scheduler.shutdown()
+                    scheduler.start()
+                    logger.info("调度器已重启")
+                except Exception as restart_error:
+                    logger.error(f"调度器重启失败: {restart_error}")
+
+        # 启动调度器
+        if not scheduler.running:
+            scheduler.start()
+            logger.info("调度器已启动，包含健康检查机制")
 
 # 路由定义
 @app.route('/health', methods=['GET'])
@@ -517,6 +734,30 @@ def handle_wechat():
             logger.error(f"处理消息异常：{e}")
             logger.exception("详细错误信息：")
             return "success"
+
+# 添加调度器状态检查路由
+@app.route('/scheduler/status', methods=['GET'])
+def scheduler_status():
+    """检查调度器状态的接口"""
+    if scheduler is None:
+        return {"status": "not_initialized"}, 500
+    
+    try:
+        status = {
+            "running": scheduler.running,
+            "jobs": [
+                {
+                    "id": job.id,
+                    "next_run_time": str(job.next_run_time),
+                    "pending": job.pending
+                }
+                for job in scheduler.get_jobs()
+            ]
+        }
+        return status, 200
+    except Exception as e:
+        logger.error(f"获取调度器状态失败: {e}")
+        return {"error": str(e)}, 500
 
 # 创建应用实例
 app = create_app()
